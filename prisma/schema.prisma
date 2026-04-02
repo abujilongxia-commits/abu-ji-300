@@ -1,0 +1,117 @@
+// Prisma Schema for 阿布吉300任務網站
+// 負責人：Enqi ⚡
+// 設計依據：docs/system-spec.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用戶模型
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String    // 應該使用 bcrypt 哈希
+  displayName   String?
+  avatarUrl     String?
+  settings      Json?     // 使用者設定（主題、语言、时区等）
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 關聯
+  tasks         Task[]    // 使用者擁有的任務
+  assignedTasks Task[]    @relation("TaskAssignee") // 被指派的任務
+
+  @@map("users")
+}
+
+// 任務模型
+model Task {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus    @default(PENDING)
+  priority    Priority      @default(MEDIUM)
+  dueDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // 關聯
+  ownerId     String
+  owner       User          @relation(fields: [ownerId], references: [id])
+  assigneeId  String?
+  assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  tags        Tag[]         @relation("TaskTags")
+  subtasks    SubTask[]
+  comments    Comment[]
+
+  @@index([ownerId])
+  @@index([assigneeId])
+  @@index([status])
+  @@map("tasks")
+}
+
+// 子任務
+model SubTask {
+  id        String   @id @default(cuid())
+  title     String
+  completed Boolean  @default(false)
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("subtasks")
+}
+
+// 標籤
+model Tag {
+  id    String  @id @default(cuid())
+  name  String  @unique
+  color String  @default("#6B7280") // 預設灰色
+
+  tasks Task[]  @relation("TaskTags")
+
+  @@map("tags")
+}
+
+// 評論
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+
+  @@map("comments")
+}
+
+// 專案/分類
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("projects")
+}
+
+// 枚舉定義
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
