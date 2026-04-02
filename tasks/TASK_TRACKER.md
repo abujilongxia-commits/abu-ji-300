@@ -13,51 +13,56 @@
 | # | 任務 | 負責人 | 狀態 | 交付物 |
 |---|------|--------|------|--------|
 | ✅ | Git 分支策略 | Brian | 完成 | develop, feature/layout-system |
-| ✅ | 佈局系統 | Brian | 完成 | Header, Sidebar, Footer |
+| ✅ | 佈局系統 | Brian/Enqi | 完成 | Header, Sidebar, Footer |
 | ✅ | 首頁儀表板 | Brian | 完成 | Dashboard UI |
+| ✅ | 登入頁面 | Chenwei | 完成 | `/auth/login` |
+| ✅ | 任務列表頁 | Enqi | 完成 | `/tasks` |
+| ✅ | 儀表板頁面 | Kelly | 完成 | `/dashboard` |
+| ✅ | API 路由 | Enqi/Chenwei | 完成 | `/api/*` |
+| ✅ | Prisma Schema | Enqi | 完成 | `prisma/schema.prisma` |
 
 ### 第二梯隊（進行中）
 
-| # | 任務 | 負責人 | 狀態 | 交付物 | 截止 |
-|---|------|--------|------|--------|------|
-| 🔄 | 登入/註冊頁面 | **Chenwei** | 進行中 | auth/page.tsx | 今天 |
-| 🔄 | 任務列表頁 | **Enqi** | 進行中 | tasks/page.tsx | 今天 |
-| 🔄 | API 路由骨架 | **Enqi** | 進行中 | /api/* | 今天 |
+| # | 任務 | 負責人 | 狀態 | 交付物 |
+|---|------|--------|------|--------|
+| 🔄 | UI 統一包裝 | Kelly | 進行中 | 設計系統統一 |
+| 🔄 | API 串接前端 | Enqi | 進行中 | 頁面串接真實 API |
 
 ### 第三梯隊（待執行）
 
 | # | 任務 | 負責人 | 狀態 | 交付物 |
 |---|------|--------|------|--------|
-| ⬜ | 儀表板頁面 | **Kelly** | 待執行 | /dashboard |
-| ⬜ | Prisma Schema | **Enqi** | 待執行 | schema.prisma |
-| ⬜ | 搜尋/篩選 | **Chenwei** | 待執行 | 過濾功能 |
+| ⬜ | Vercel 部署 | Brian | 待執行 | 正式環境上線 |
+| ⬜ | 四幹部聯簽審批 | Kelly | 待執行 | approval.md |
 
 ---
 
 ## 👥 團隊分工
 
 ### Enqi ⚡ - 系統與效率獨裁者
-- **當前任務：** 任務列表頁 + API 路由
-- **職責：** 確保技術架構效率、程式碼品質
+- ✅ API 路由骨架
+- ✅ Prisma Schema
+- 🔄 API 串接前端
 
 ### Chenwei 🎯 - 客戶關係守護者
-- **當前任務：** 登入/註冊頁面
-- **職責：** 需求對照、用戶體驗把關
+- ✅ 登入/註冊頁面
+- ✅ 認證 API
+- 🔄 需求對照審核
 
 ### Kelly 🔍 - 體驗與品質挑剔者
-- **當前任務：** 儀表板頁面
-- **職責：** UI/UX 審查、測試覆蓋
+- ✅ 儀表板頁面
+- 🔄 UI 統一包裝
+- ⬜ 品質審核
 
 ---
 
 ## 📊 進度回報
 
-### 2026-04-02 20:00
-- ✅ 完成佈局系統（Header, Sidebar, Footer）
-- ✅ 完成首頁儀表板
-- ✅ 已提交至 feature/layout-system
-- 🔄 派遣 Chenwei 執行登入頁面
-- 🔄 派遣 Enqi 執行任務列表頁
+### 2026-04-02 20:30
+- ✅ 完成 API 路由（Tasks CRUD + Auth）
+- ✅ 完成 Prisma Schema
+- 🔄 派遣 Kelly 執行 UI 統一包裝
+- 🔄 Enqi 串接 API
 
 ---
 
@@ -65,3 +70,16 @@
 
 **Repository:** https://github.com/abujilongxia-commits/abu-ji-300
 **當前分支：** feature/layout-system
+**Commit 歷史：**
+- cd4b4ab - 佈局系統與首頁儀表板
+- 96cc9c2 - 派遣 Chenwei 和 Enqi 執行任務
+- 9baefaf - Kelly 儀表板頁面
+- 40e3577 - Enqi 和 Chenwei API 與資料庫
+
+---
+
+## 📈 完成度
+
+```
+████████████░░░░░░░░░ 60%
+```
