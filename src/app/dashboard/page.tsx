@@ -5,23 +5,38 @@ import React, { useState, useEffect } from "react";
 /**
  * 儀表板頁面
  * 負責人：Kelly 🔍
- * 功能：任務統計、進度視覺化、捷徑
- * 備註：連接真實 API，無 mock 資料
+ * 功能：任務統計、進度視覺化、進度追蹤列表
  */
+
+interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
 
 interface Task {
   id: string;
   title: string;
   status: "pending" | "in_progress" | "completed" | "blocked";
-  dueDate?: string;
+  priority: "low" | "medium" | "high";
+  progress: number;
   assignee?: string;
+  dueDate?: string;
+  checklist?: ChecklistItem[];
+  createdAt: string;
 }
 
 const statusConfig = {
-  pending: { label: "待處理", color: "text-neutral-500", bg: "bg-neutral-100" },
-  in_progress: { label: "進行中", color: "text-[#2563EB]", bg: "bg-[#2563EB]/10" },
-  completed: { label: "已完成", color: "text-[#10B981]", bg: "bg-[#10B981]/10" },
-  blocked: { label: "已阻塞", color: "text-[#EF4444]", bg: "bg-[#EF4444]/10" },
+  pending: { label: "待處理", color: "text-neutral-500", bg: "bg-neutral-100", border: "border-neutral-300" },
+  in_progress: { label: "進行中", color: "text-[#2563EB]", bg: "bg-[#2563EB]/10", border: "border-[#2563EB]" },
+  completed: { label: "已完成", color: "text-[#10B981]", bg: "bg-[#10B981]/10", border: "border-[#10B981]" },
+  blocked: { label: "已阻塞", color: "text-[#EF4444]", bg: "bg-[#EF4444]/10", border: "border-[#EF4444]" },
+};
+
+const priorityConfig = {
+  low: { label: "低", color: "text-neutral-400" },
+  medium: { label: "中", color: "text-[#F59E0B]" },
+  high: { label: "高", color: "text-[#EF4444]" },
 };
 
 export default function DashboardPage() {
@@ -43,6 +58,9 @@ export default function DashboardPage() {
       }
     }
     fetchTasks();
+    // 每 30 秒自動刷新
+    const interval = setInterval(fetchTasks, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // 計算統計
@@ -51,26 +69,77 @@ export default function DashboardPage() {
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress").length;
   const pendingTasks = tasks.filter((t) => t.status === "pending").length;
   const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const overallProgress = totalTasks > 0
+    ? Math.round(tasks.reduce((sum, t) => sum + t.progress, 0) / totalTasks)
+    : 0;
 
-  // 最近任務（取前4個）
-  const recentTasks = tasks.slice(0, 4);
+  // 切換檢查項目
+  const toggleChecklist = async (taskId: string, itemId: string, currentChecklist: ChecklistItem[]) => {
+    const updatedChecklist = currentChecklist.map(item =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+
+    // 更新本地狀態
+    setTasks(prev => prev.map(t => {
+      if (t.id === taskId) {
+        const completedCount = updatedChecklist.filter(i => i.completed).length;
+        const progress = updatedChecklist.length > 0
+          ? Math.round((completedCount / updatedChecklist.length) * 100)
+          : t.progress;
+        return { ...t, checklist: updatedChecklist, progress };
+      }
+      return t;
+    }));
+
+    // 更新 API
+    await fetch(`/api/tasks?id=${taskId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checklist: updatedChecklist, progress: updatedChecklist.length > 0
+        ? Math.round(updatedChecklist.filter((i: ChecklistItem) => i.completed).length / updatedChecklist.length * 100)
+        : 0 }),
+    });
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-          儀表板
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          阿布吉300任務網站 - 任務概覽
-        </p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+            任務儀表板
+          </h1>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+            Brian ⚖️ 四幹部會談追蹤系統
+          </p>
+        </div>
+        <div className="text-sm text-neutral-500">
+          🔄 每 30 秒自動更新
+        </div>
       </div>
 
       {/* Loading State */}
       {isLoading && (
         <div className="py-12 text-center text-neutral-500">載入中...</div>
+      )}
+
+      {/* Overall Progress */}
+      {!isLoading && (
+        <div className="mb-8 rounded-xl border border-[#2563EB] bg-[#2563EB]/5 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-lg font-semibold text-[#2563EB]">📊 整體進度</span>
+            <span className="text-2xl font-bold text-[#2563EB]">{overallProgress}%</span>
+          </div>
+          <div className="h-4 bg-neutral-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#2563EB] transition-all duration-500"
+              style={{ width: `${overallProgress}%` }}
+            />
+          </div>
+          <div className="mt-2 text-sm text-neutral-500">
+            {completedTasks}/{totalTasks} 任務已完成
+          </div>
+        </div>
       )}
 
       {/* Stats Grid */}
@@ -80,12 +149,7 @@ export default function DashboardPage() {
             icon="📋"
             label="總任務數"
             value={totalTasks}
-          />
-          <StatCard
-            icon="✅"
-            label="已完成"
-            value={completedTasks}
-            color="text-[#10B981]"
+            color="text-neutral-900"
           />
           <StatCard
             icon="🔄"
@@ -94,125 +158,109 @@ export default function DashboardPage() {
             color="text-[#2563EB]"
           />
           <StatCard
+            icon="✅"
+            label="已完成"
+            value={completedTasks}
+            color="text-[#10B981]"
+          />
+          <StatCard
             icon="⚠️"
-            label="已阻塞"
-            value={blockedTasks}
-            color="text-[#EF4444]"
+            label="待處理/阻塞"
+            value={pendingTasks + blockedTasks}
+            color={blockedTasks > 0 ? "text-[#EF4444]" : "text-[#F59E0B]"}
           />
         </div>
       )}
 
-      {/* Main Content Grid */}
+      {/* Task Progress List */}
       {!isLoading && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Progress Overview */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              專案進度
-            </h2>
-            <div className="flex items-center justify-center">
-              <div className="relative h-40 w-40">
-                {/* Progress Circle */}
-                <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
-                  {/* Background */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="12"
-                    className="text-neutral-200 dark:text-neutral-700"
-                  />
-                  {/* Progress */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="12"
-                    strokeDasharray={`${completionRate * 2.51} 251`}
-                    strokeLinecap="round"
-                    className="text-[#2563EB]"
-                  />
-                </svg>
-                {/* Center Text */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                    {completionRate}%
-                  </span>
-                  <span className="text-xs text-neutral-500">完成率</span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-600 dark:text-neutral-400">待處理</span>
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">{pendingTasks}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-600 dark:text-neutral-400">進行中</span>
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">{inProgressTasks}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-600 dark:text-neutral-400">已完成</span>
-                <span className="font-medium text-[#10B981]">{completedTasks}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-600 dark:text-neutral-400">已阻塞</span>
-                <span className="font-medium text-[#EF4444]">{blockedTasks}</span>
-              </div>
-            </div>
-          </div>
+        <div>
+          <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+            📍 任務進度追蹤
+          </h2>
 
-          {/* Recent Tasks */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800 lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                最近任務
-              </h2>
-              <a href="/tasks" className="text-sm font-medium text-[#2563EB] hover:underline">
-                查看全部 →
+          {tasks.length === 0 ? (
+            <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center dark:border-neutral-700 dark:bg-neutral-800">
+              <p className="text-neutral-500">尚無任務</p>
+              <a href="/tasks/new" className="mt-2 inline-block text-[#2563EB] hover:underline">
+                前往發佈任務 →
               </a>
             </div>
-            {recentTasks.length > 0 ? (
-              <div className="space-y-3">
-                {recentTasks.map((task) => {
-                  const config = statusConfig[task.status];
-                  return (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between rounded-lg border border-neutral-100 p-3 dark:border-neutral-700"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-medium ${config.bg} ${config.color}`}
-                        >
-                          {config.label}
-                        </span>
-                        <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                          {task.title}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-neutral-500">
-                        {task.dueDate && <span>截止：{task.dueDate}</span>}
-                        {task.assignee && (
-                          <span className="rounded-full bg-neutral-100 px-2 py-0.5 dark:bg-neutral-700">
-                            {task.assignee}
+          ) : (
+            <div className="space-y-4">
+              {tasks.map((task) => {
+                const config = statusConfig[task.status];
+                const priority = priorityConfig[task.priority];
+                return (
+                  <div
+                    key={task.id}
+                    className={`rounded-xl border ${config.border} bg-white p-5 dark:border-neutral-700 dark:bg-neutral-800`}
+                  >
+                    {/* Task Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.bg} ${config.color}`}>
+                            {config.label}
                           </span>
-                        )}
+                          <span className={`text-xs font-medium ${priority.color}`}>
+                            {priority.label}優先
+                          </span>
+                          {task.assignee && (
+                            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-700">
+                              {task.assignee}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">
+                          {task.title}
+                        </h3>
+                        <p className="text-xs text-neutral-500 mt-1">ID: {task.id}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-[#2563EB]">{task.progress}%</div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-neutral-500">
-                尚無任務
-              </div>
-            )}
-          </div>
+
+                    {/* Progress Bar */}
+                    <div className="h-2 bg-neutral-200 rounded-full overflow-hidden mb-3">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          task.progress === 100 ? "bg-[#10B981]" : "bg-[#2563EB]"
+                        }`}
+                        style={{ width: `${task.progress}%` }}
+                      />
+                    </div>
+
+                    {/* Checklist */}
+                    {task.checklist && task.checklist.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-neutral-500">
+                          檢查清單（{task.checklist.filter(i => i.completed).length}/{task.checklist.length}）
+                        </p>
+                        {task.checklist.map((item) => (
+                          <label
+                            key={item.id}
+                            className="flex items-center gap-2 cursor-pointer group"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={item.completed}
+                              onChange={() => toggleChecklist(task.id, item.id, task.checklist || [])}
+                              className="h-4 w-4 rounded border-neutral-300 text-[#2563EB] focus:ring-[#2563EB]"
+                            />
+                            <span className={`text-sm ${item.completed ? "line-through text-neutral-400" : "text-neutral-700 dark:text-neutral-300"}`}>
+                              {item.text}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -224,7 +272,7 @@ export default function DashboardPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction icon="➕" title="新建任務" href="/tasks/new" />
           <QuickAction icon="📋" title="任務列表" href="/tasks" />
-          <QuickAction icon="📊" title="統計報告" href="/reports" />
+          <QuickAction icon="📊" title="全部統計" href="/reports" />
           <QuickAction icon="⚙️" title="設定" href="/settings" />
         </div>
       </div>
@@ -236,7 +284,7 @@ function StatCard({
   icon,
   label,
   value,
-  color = "text-neutral-900 dark:text-neutral-100",
+  color = "text-neutral-900",
 }: {
   icon: string;
   label: string;
