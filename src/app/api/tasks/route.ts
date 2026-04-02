@@ -3,9 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * 任務 API 路由
  * 負責人：Enqi ⚡
- * 文件：docs/system-spec.md §1.2
- *
- * 備註：目前連接記憶體存儲，未來將遷移至 PostgreSQL + Prisma
+ * 功能：任務 CRUD，含四幹部會談結果
  */
 
 // 介面定義
@@ -15,12 +13,25 @@ interface Task {
   description?: string;
   status: "pending" | "in_progress" | "completed" | "blocked";
   priority: "low" | "medium" | "high";
+  category?: string;
+  assignee?: string;
   dueDate?: string;
+  notes?: string;
+  officersAnalysis?: OfficerAnalysis[];
+  checklist?: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-// 記憶體存儲（等待 Prisma 遷移）
+interface OfficerAnalysis {
+  officer: string;
+  role: string;
+  analysis: string;
+  recommendations: string[];
+  suggestedAgent?: string;
+}
+
+// 記憶體存儲
 let tasks: Task[] = [];
 
 // GET /api/tasks - 取得所有任務
@@ -51,7 +62,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, priority, dueDate } = body;
+    const { title, description, priority, dueDate, category, assignee, notes, officersAnalysis } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -61,17 +72,24 @@ export async function POST(request: NextRequest) {
     }
 
     const newTask: Task = {
-      id: String(Date.now()),
+      id: `TSK-${Date.now()}`,
       title,
       description,
       status: "pending",
       priority: priority || "medium",
+      category,
+      assignee,
       dueDate,
+      notes,
+      officersAnalysis,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     tasks.push(newTask);
+
+    console.log(`[Brian ⚖️] 新任務建立: ${newTask.id} - ${newTask.title}`);
+    console.log(`[Task Pusher] 任務已加入追蹤，ID: ${newTask.id}`);
 
     return NextResponse.json(
       { success: true, data: newTask },
@@ -104,6 +122,8 @@ export async function PUT(request: NextRequest) {
       ...updates,
       updatedAt: new Date().toISOString(),
     };
+
+    console.log(`[Task Pusher] 任務更新: ${id} -> ${updates.status || tasks[taskIndex].status}`);
 
     return NextResponse.json({
       success: true,
@@ -138,6 +158,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   tasks.splice(taskIndex, 1);
+  console.log(`[Brian ⚖️] 任務刪除: ${id}`);
 
   return NextResponse.json({
     success: true,
