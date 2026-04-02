@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * 任務列表頁面
  * 負責人：Enqi ⚡
- * 功能：任務的 CRUD、清單檢視、篩選、排序
- * 備註：連接真實 API，無 mock 資料
+ * 功能：任務 CRUD、清單檢視、篩選、排序、編輯、刪除
  */
 
 type TaskStatus = "all" | "pending" | "in_progress" | "completed" | "blocked";
@@ -14,8 +14,10 @@ type TaskStatus = "all" | "pending" | "in_progress" | "completed" | "blocked";
 interface Task {
   id: string;
   title: string;
+  description?: string;
   status: Exclude<TaskStatus, "all">;
   priority: "low" | "medium" | "high";
+  progress: number;
   dueDate?: string;
   assignee?: string;
 }
@@ -34,6 +36,7 @@ const priorityConfig = {
 };
 
 export default function TasksPage() {
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<TaskStatus>("all");
   const [sortBy, setSortBy] = useState<"title" | "due" | "priority">("due");
@@ -41,24 +44,64 @@ export default function TasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 從 API 獲取任務
-  useEffect(() => {
-    async function fetchTasks() {
-      try {
-        setIsLoading(true);
-        const response = await fetch("/api/tasks");
-        if (!response.ok) throw new Error("獲取任務失敗");
-        const data = await response.json();
-        setTasks(data.data || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "未知錯誤");
-      } finally {
-        setIsLoading(false);
-      }
+  // 取得任務
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch("/api/tasks");
+      if (!response.ok) throw new Error("獲取任務失敗");
+      const data = await response.json();
+      setTasks(data.data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "未知錯誤");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchTasks();
   }, []);
 
+  // 刪除任務
+  const handleDelete = async (id: string) => {
+    if (!confirm("確定要刪除這個任務嗎？")) return;
+
+    try {
+      const response = await fetch(`/api/tasks?id=${id}`, { method: "DELETE" });
+      const result = await response.json();
+      if (result.success) {
+        setTasks((prev) => prev.filter((t) => t.id !== id));
+      } else {
+        alert("刪除失敗：" + result.message);
+      }
+    } catch (err) {
+      alert("刪除失敗");
+    }
+  };
+
+  // 標記完成
+  const handleToggleComplete = async (task: Task) => {
+    const newStatus = task.status === "completed" ? "pending" : "completed";
+    const newProgress = task.status === "completed" ? 0 : 100;
+
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: task.id, status: newStatus, progress: newProgress }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task.id ? { ...t, status: newStatus, progress: newProgress } : t))
+        );
+      }
+    } catch (err) {
+      console.error("更新失敗", err);
+    }
+  };
+
+  // 篩選和排序
   const filteredTasks = tasks
     .filter((task) => filter === "all" || task.status === filter)
     .filter((task) => task.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -79,10 +122,13 @@ export default function TasksPage() {
             任務列表
           </h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-            管理所有任務項目
+            共 {tasks.length} 個任務
           </p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2 font-medium text-white transition-colors hover:bg-[#1D4ED8]">
+        <button
+          onClick={() => router.push("/tasks/new")}
+          className="flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2 font-medium text-white transition-colors hover:bg-[#1D4ED8]"
+        >
           <span>+</span>
           <span>新建任務</span>
         </button>
@@ -135,10 +181,7 @@ export default function TasksPage() {
         {Object.entries(statusConfig).map(([key, config]) => {
           const count = tasks.filter((t) => t.status === key).length;
           return (
-            <div
-              key={key}
-              className={`rounded-lg border ${config.border} ${config.bg} p-3`}
-            >
+            <div key={key} className={`rounded-lg border ${config.border} ${config.bg} p-3`}>
               <p className={`text-sm font-medium ${config.color}`}>{config.label}</p>
               <p className={`text-2xl font-bold ${config.color}`}>{count}</p>
             </div>
@@ -147,17 +190,9 @@ export default function TasksPage() {
       </div>
 
       {/* Loading/Error State */}
-      {isLoading && (
-        <div className="py-12 text-center text-neutral-500">
-          載入中...
-        </div>
-      )}
+      {isLoading && <div className="py-12 text-center text-neutral-500">載入中...</div>}
 
-      {error && (
-        <div className="py-12 text-center text-red-500">
-          錯誤：{error}
-        </div>
-      )}
+      {error && <div className="py-12 text-center text-red-500">錯誤：{error}</div>}
 
       {/* Task List */}
       {!isLoading && !error && (
@@ -167,22 +202,26 @@ export default function TasksPage() {
             return (
               <div
                 key={task.id}
-                className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-4 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+                className={`flex items-center gap-4 rounded-xl border ${config.border} bg-white p-4 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-800`}
               >
                 {/* Checkbox */}
                 <input
                   type="checkbox"
                   checked={task.status === "completed"}
-                  onChange={() => {}}
+                  onChange={() => handleToggleComplete(task)}
                   className="h-5 w-5 rounded border-neutral-300 text-[#2563EB]"
                 />
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className={`font-medium text-neutral-900 dark:text-neutral-100 ${task.status === "completed" ? "line-through opacity-50" : ""}`}>
+                  <p
+                    className={`font-medium text-neutral-900 dark:text-neutral-100 ${
+                      task.status === "completed" ? "line-through opacity-50" : ""
+                    }`}
+                  >
                     {task.title}
                   </p>
-                  <div className="mt-1 flex items-center gap-3 text-sm text-neutral-500">
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-neutral-500">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.bg} ${config.color}`}>
                       {config.label}
                     </span>
@@ -191,15 +230,38 @@ export default function TasksPage() {
                     </span>
                     {task.dueDate && <span>截止：{task.dueDate}</span>}
                     {task.assignee && <span>負責：{task.assignee}</span>}
+                    {task.progress > 0 && task.progress < 100 && (
+                      <span className="text-[#2563EB]">進度：{task.progress}%</span>
+                    )}
                   </div>
                 </div>
 
+                {/* Progress Bar */}
+                {task.progress > 0 && (
+                  <div className="w-24">
+                    <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${task.status === "completed" ? "bg-[#10B981]" : "bg-[#2563EB]"}`}
+                        style={{ width: `${task.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Actions */}
-                <div className="flex items-center gap-2">
-                  <button className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => router.push(`/tasks/${task.id}`)}
+                    className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-700"
+                    title="編輯"
+                  >
                     ✏️
                   </button>
-                  <button className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-red-600">
+                  <button
+                    onClick={() => handleDelete(task.id)}
+                    className="rounded-lg p-2 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                    title="刪除"
+                  >
                     🗑️
                   </button>
                 </div>
@@ -208,8 +270,18 @@ export default function TasksPage() {
           })}
 
           {filteredTasks.length === 0 && (
-            <div className="py-12 text-center text-neutral-500">
-              {tasks.length === 0 ? "尚無任務，點擊「新建任務」建立第一個任務" : "沒有符合條件的任務"}
+            <div className="py-12 text-center">
+              <p className="text-neutral-500">
+                {tasks.length === 0 ? "尚無任務" : "沒有符合條件的任務"}
+              </p>
+              {tasks.length === 0 && (
+                <button
+                  onClick={() => router.push("/tasks/new")}
+                  className="mt-4 text-[#2563EB] hover:underline"
+                >
+                  前往新建任務 →
+                </button>
+              )}
             </div>
           )}
         </div>
