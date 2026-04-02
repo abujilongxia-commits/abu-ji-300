@@ -4,8 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
  * 任務 API 路由
  * 負責人：Enqi ⚡
  * 文件：docs/system-spec.md §1.2
+ *
+ * 備註：目前連接記憶體存儲，未來將遷移至 PostgreSQL + Prisma
  */
 
+// 介面定義
 interface Task {
   id: string;
   title: string;
@@ -17,25 +20,8 @@ interface Task {
   updatedAt: string;
 }
 
-// Mock 資料庫
-let tasks: Task[] = [
-  {
-    id: "1",
-    title: "完成用戶登入功能",
-    status: "in_progress",
-    priority: "high",
-    createdAt: "2026-04-01T10:00:00Z",
-    updatedAt: "2026-04-02T10:00:00Z",
-  },
-  {
-    id: "2",
-    title: "設計資料庫 Schema",
-    status: "completed",
-    priority: "high",
-    createdAt: "2026-04-01T10:00:00Z",
-    updatedAt: "2026-04-02T10:00:00Z",
-  },
-];
+// 記憶體存儲（等待 Prisma 遷移）
+let tasks: Task[] = [];
 
 // GET /api/tasks - 取得所有任務
 export async function GET(request: NextRequest) {
@@ -57,6 +43,7 @@ export async function GET(request: NextRequest) {
     success: true,
     data: filteredTasks,
     total: filteredTasks.length,
+    message: tasks.length === 0 ? "尚無任務，請先建立任務" : undefined,
   });
 }
 
@@ -68,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (!title) {
       return NextResponse.json(
-        { success: false, error: "TITLE_REQUIRED" },
+        { success: false, error: "TITLE_REQUIRED", message: "標題為必填" },
         { status: 400 }
       );
     }
@@ -92,7 +79,7 @@ export async function POST(request: NextRequest) {
     );
   } catch {
     return NextResponse.json(
-      { success: false, error: "INVALID_REQUEST" },
+      { success: false, error: "INVALID_REQUEST", message: "請求格式錯誤" },
       { status: 400 }
     );
   }
@@ -107,7 +94,7 @@ export async function PUT(request: NextRequest) {
     const taskIndex = tasks.findIndex((t) => t.id === id);
     if (taskIndex === -1) {
       return NextResponse.json(
-        { success: false, error: "TASK_NOT_FOUND" },
+        { success: false, error: "TASK_NOT_FOUND", message: "任務不存在" },
         { status: 404 }
       );
     }
@@ -124,7 +111,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch {
     return NextResponse.json(
-      { success: false, error: "INVALID_REQUEST" },
+      { success: false, error: "INVALID_REQUEST", message: "請求格式錯誤" },
       { status: 400 }
     );
   }
@@ -137,7 +124,7 @@ export async function DELETE(request: NextRequest) {
 
   if (!id) {
     return NextResponse.json(
-      { success: false, error: "ID_REQUIRED" },
+      { success: false, error: "ID_REQUIRED", message: "缺少任務 ID" },
       { status: 400 }
     );
   }
@@ -145,7 +132,7 @@ export async function DELETE(request: NextRequest) {
   const taskIndex = tasks.findIndex((t) => t.id === id);
   if (taskIndex === -1) {
     return NextResponse.json(
-      { success: false, error: "TASK_NOT_FOUND" },
+      { success: false, error: "TASK_NOT_FOUND", message: "任務不存在" },
       { status: 404 }
     );
   }
@@ -154,6 +141,6 @@ export async function DELETE(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    message: "Task deleted",
+    message: "任務已刪除",
   });
 }

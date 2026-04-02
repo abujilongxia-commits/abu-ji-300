@@ -4,39 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
  * 用戶登入 API
  * 負責人：Chenwei 🎯
  * 文件：docs/system-spec.md §1.1
+ *
+ * 備註：等待 Prisma + PostgreSQL 連接，目前暫停服務
  */
 
-interface User {
-  id: string;
-  email: string;
-  password: string;
-  displayName: string;
-  settings: {
-    theme: "light" | "dark";
-    language: string;
-    timezone: string;
-  };
-}
-
-// Mock 用戶資料庫（密碼应为哈希，这里简化处理）
-const users: Map<string, User> = new Map([
-  [
-    "demo@abu-ji.com",
-    {
-      id: "user_demo",
-      email: "demo@abu-ji.com",
-      password: "Demo1234",
-      displayName: "示範用戶",
-      settings: {
-        theme: "light",
-        language: "zh-TW",
-        timezone: "Asia/Taipei",
-      },
-    },
-  ],
-]);
-
-// 登入失敗計數
+// 登入失敗計數（記憶體存儲）
 const loginAttempts: Map<string, { count: number; lockedUntil: number }> = new Map();
 
 function generateTokens() {
@@ -79,62 +51,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 檢查用戶是否存在
-    const user = users.get(email);
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "INVALID_CREDENTIALS",
-          message: "帳號或密碼錯誤",
-        },
-        { status: 401 }
-      );
-    }
-
-    // 驗證密碼（這裡應該用 bcrypt 比較）
-    if (user.password !== password) {
-      // 記錄失敗次數
-      const currentAttempts = loginAttempts.get(email) || { count: 0, lockedUntil: 0 };
-      currentAttempts.count += 1;
-
-      if (currentAttempts.count >= 5) {
-        currentAttempts.lockedUntil = Date.now() + 15 * 60 * 1000; // 15 分鐘
-        loginAttempts.set(email, currentAttempts);
-        return NextResponse.json(
-          {
-            success: false,
-            error: "RATE_LIMIT_EXCEEDED",
-            message: "登入失敗超過 5 次，帳戶已鎖定 15 分鐘",
-          },
-          { status: 429 }
-        );
-      }
-
-      loginAttempts.set(email, currentAttempts);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "INVALID_CREDENTIALS",
-          message: "帳號或密碼錯誤",
-        },
-        { status: 401 }
-      );
-    }
-
-    // 登入成功，清除失敗記錄
-    loginAttempts.delete(email);
-
-    // 返回用戶資料（不含密碼）和 tokens
-    const { password: _, ...safeUser } = user;
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        user: safeUser,
-        tokens: generateTokens(),
+    // 檢查用戶是否存在（目前無資料庫，回傳錯誤）
+    return NextResponse.json(
+      {
+        success: false,
+        error: "DATABASE_NOT_CONNECTED",
+        message: "用戶系統尚未啟用，請聯繫管理員設定資料庫",
       },
-    });
+      { status: 503 }
+    );
+
   } catch {
     return NextResponse.json(
       {

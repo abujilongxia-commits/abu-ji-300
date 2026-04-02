@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 /**
  * 任務列表頁面
  * 負責人：Enqi ⚡
  * 功能：任務的 CRUD、清單檢視、篩選、排序
+ * 備註：連接真實 API，無 mock 資料
  */
 
 type TaskStatus = "all" | "pending" | "in_progress" | "completed" | "blocked";
@@ -15,18 +16,9 @@ interface Task {
   title: string;
   status: Exclude<TaskStatus, "all">;
   priority: "low" | "medium" | "high";
-  due: string;
-  assignee: string;
+  dueDate?: string;
+  assignee?: string;
 }
-
-const mockTasks: Task[] = [
-  { id: "1", title: "完成用戶登入功能", status: "in_progress", priority: "high", due: "今天", assignee: "Brian" },
-  { id: "2", title: "設計資料庫 Schema", status: "completed", priority: "high", due: "昨天", assignee: "Enqi" },
-  { id: "3", title: "API 文件撰寫", status: "pending", priority: "medium", due: "明天", assignee: "Chenwei" },
-  { id: "4", title: "前端介面優化", status: "blocked", priority: "low", due: "已逾期", assignee: "Kelly" },
-  { id: "5", title: "響應式設計測試", status: "pending", priority: "medium", due: "本週", assignee: "Kelly" },
-  { id: "6", title: "Prisma ORM 串接", status: "in_progress", priority: "high", due: "今天", assignee: "Enqi" },
-];
 
 const statusConfig = {
   pending: { label: "待處理", color: "text-neutral-500", bg: "bg-neutral-100", border: "border-neutral-300" },
@@ -42,11 +34,32 @@ const priorityConfig = {
 };
 
 export default function TasksPage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<TaskStatus>("all");
   const [sortBy, setSortBy] = useState<"title" | "due" | "priority">("due");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredTasks = mockTasks
+  // 從 API 獲取任務
+  useEffect(() => {
+    async function fetchTasks() {
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/tasks");
+        if (!response.ok) throw new Error("獲取任務失敗");
+        const data = await response.json();
+        setTasks(data.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "未知錯誤");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchTasks();
+  }, []);
+
+  const filteredTasks = tasks
     .filter((task) => filter === "all" || task.status === filter)
     .filter((task) => task.title.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
@@ -54,7 +67,7 @@ export default function TasksPage() {
         const order = { high: 0, medium: 1, low: 2 };
         return order[a.priority] - order[b.priority];
       }
-      return a[sortBy].localeCompare(b[sortBy]);
+      return a[sortBy]?.localeCompare(b[sortBy] || "") || 0;
     });
 
   return (
@@ -120,7 +133,7 @@ export default function TasksPage() {
       {/* Stats */}
       <div className="mb-6 grid grid-cols-4 gap-4">
         {Object.entries(statusConfig).map(([key, config]) => {
-          const count = mockTasks.filter((t) => t.status === key).length;
+          const count = tasks.filter((t) => t.status === key).length;
           return (
             <div
               key={key}
@@ -133,59 +146,74 @@ export default function TasksPage() {
         })}
       </div>
 
-      {/* Task List */}
-      <div className="space-y-3">
-        {filteredTasks.map((task) => {
-          const config = statusConfig[task.status];
-          return (
-            <div
-              key={task.id}
-              className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-4 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
-            >
-              {/* Checkbox */}
-              <input
-                type="checkbox"
-                checked={task.status === "completed"}
-                onChange={() => {}}
-                className="h-5 w-5 rounded border-neutral-300 text-[#2563EB]"
-              />
+      {/* Loading/Error State */}
+      {isLoading && (
+        <div className="py-12 text-center text-neutral-500">
+          載入中...
+        </div>
+      )}
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium text-neutral-900 dark:text-neutral-100 ${task.status === "completed" ? "line-through opacity-50" : ""}`}>
-                  {task.title}
-                </p>
-                <div className="mt-1 flex items-center gap-3 text-sm text-neutral-500">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.bg} ${config.color}`}>
-                    {config.label}
-                  </span>
-                  <span className={priorityConfig[task.priority].color}>
-                    {priorityConfig[task.priority].label}優先
-                  </span>
-                  <span>截止：{task.due}</span>
-                  <span>負責：{task.assignee}</span>
+      {error && (
+        <div className="py-12 text-center text-red-500">
+          錯誤：{error}
+        </div>
+      )}
+
+      {/* Task List */}
+      {!isLoading && !error && (
+        <div className="space-y-3">
+          {filteredTasks.map((task) => {
+            const config = statusConfig[task.status];
+            return (
+              <div
+                key={task.id}
+                className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-4 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+              >
+                {/* Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={task.status === "completed"}
+                  onChange={() => {}}
+                  className="h-5 w-5 rounded border-neutral-300 text-[#2563EB]"
+                />
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium text-neutral-900 dark:text-neutral-100 ${task.status === "completed" ? "line-through opacity-50" : ""}`}>
+                    {task.title}
+                  </p>
+                  <div className="mt-1 flex items-center gap-3 text-sm text-neutral-500">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.bg} ${config.color}`}>
+                      {config.label}
+                    </span>
+                    <span className={priorityConfig[task.priority].color}>
+                      {priorityConfig[task.priority].label}優先
+                    </span>
+                    {task.dueDate && <span>截止：{task.dueDate}</span>}
+                    {task.assignee && <span>負責：{task.assignee}</span>}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600">
+                    ✏️
+                  </button>
+                  <button className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-red-600">
+                    🗑️
+                  </button>
                 </div>
               </div>
+            );
+          })}
 
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600">
-                  ✏️
-                </button>
-                <button className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-red-600">
-                  🗑️
-                </button>
-              </div>
+          {filteredTasks.length === 0 && (
+            <div className="py-12 text-center text-neutral-500">
+              {tasks.length === 0 ? "尚無任務，點擊「新建任務」建立第一個任務" : "沒有符合條件的任務"}
             </div>
-          );
-        })}
-
-        {filteredTasks.length === 0 && (
-          <div className="py-12 text-center text-neutral-500">
-            沒有符合條件的任務
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
