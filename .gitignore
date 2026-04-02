@@ -35,3 +35,6 @@ coverage/
 *.bak
 *.tmp
 .cache/
+
+# Next.js
+.next/
