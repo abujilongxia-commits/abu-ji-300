@@ -1,48 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadTasks, addTask, updateTask, deleteTask, getTask, Task, ChecklistItem } from "@/lib/task-store";
 
 /**
  * 任務 API 路由
  * 負責人：Enqi ⚡
  * 功能：任務 CRUD，含四幹部會談結果與進度追蹤
+ * 持久化：使用檔案系統儲存，解決熱重載導致資料消失問題
  */
 
-// 介面定義
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: "pending" | "in_progress" | "completed" | "blocked";
-  priority: "low" | "medium" | "high";
-  category?: string;
-  assignee?: string;
-  dueDate?: string;
-  notes?: string;
-  officersAnalysis?: OfficerAnalysis[];
-  checklist?: ChecklistItem[];
-  progress: number;  // 0-100
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface OfficerAnalysis {
-  officer: string;
-  role: string;
-  analysis: string;
-  recommendations: string[];
-  suggestedAgent?: string;
-}
-
-interface ChecklistItem {
-  id: string;
-  text: string;
-  completed: boolean;
-}
-
-// 記憶體存儲
-let tasks: Task[] = [];
-
 // 從會談建議生成檢查清單
-function generateChecklistFromAnalysis(officersAnalysis?: OfficerAnalysis[]): ChecklistItem[] {
+function generateChecklistFromAnalysis(officersAnalysis?: any[]): ChecklistItem[] {
   if (!officersAnalysis) return [];
 
   const items: ChecklistItem[] = [];
@@ -63,21 +30,36 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
+  const id = searchParams.get("id");
 
-  let filteredTasks = tasks;
+  // 取得單一任務
+  if (id) {
+    const task = getTask(id);
+    if (!task) {
+      return NextResponse.json(
+        { success: false, error: "TASK_NOT_FOUND", message: "任務不存在" },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({ success: true, data: task });
+  }
+
+  let tasks = loadTasks();
 
   if (status && status !== "all") {
-    filteredTasks = filteredTasks.filter((t) => t.status === status);
+    tasks = tasks.filter((t) => t.status === status);
   }
 
   if (priority) {
-    filteredTasks = filteredTasks.filter((t) => t.priority === priority);
+    tasks = tasks.filter((t) => t.priority === priority);
   }
+
+  console.log(`[TaskStore] 載入 ${tasks.length} 個任務`);
 
   return NextResponse.json({
     success: true,
-    data: filteredTasks,
-    total: filteredTasks.length,
+    data: tasks,
+    total: tasks.length,
     message: tasks.length === 0 ? "尚無任務，請先建立任務" : undefined,
   });
 }
@@ -115,7 +97,7 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString(),
     };
 
-    tasks.push(newTask);
+    addTask(newTask);
 
     console.log(`[Brian ⚖️] 新任務建立: ${newTask.id} - ${newTask.title}`);
     console.log(`[Task Pusher] 任務已加入追蹤，ID: ${newTask.id}`);
@@ -139,47 +121,66 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, checklist, progress, status, ...otherUpdates } = body;
 
-    const taskIndex = tasks.findIndex((t) => t.id === id);
-    if (taskIndex === -1) {
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID_REQUIRED", message: "缺少任務 ID" },
+        { status: 400 }
+      );
+    }
+
+    const existingTask = getTask(id);
+    if (!existingTask) {
       return NextResponse.json(
         { success: false, error: "TASK_NOT_FOUND", message: "任務不存在" },
         { status: 404 }
       );
     }
 
-    const task = tasks[taskIndex];
-
     // 更新檢查清單項目
     if (checklist) {
-      task.checklist = checklist;
-      // 根據檢查清單自動計算進度
       const completedCount = checklist.filter((item: ChecklistItem) => item.completed).length;
       const totalCount = checklist.length;
-      task.progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : task.progress;
+      const calculatedProgress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : progress;
+
+      const updated = updateTask(id, {
+        checklist,
+        progress: typeof progress === "number" ? progress : calculatedProgress,
+        ...otherUpdates,
+      });
+
+      console.log(`[Task Pusher] 任務更新: ${id} -> ${updated?.status} (${updated?.progress}%)`);
+      return NextResponse.json({ success: true, data: updated });
     }
 
     // 更新進度
     if (typeof progress === "number") {
-      task.progress = Math.min(100, Math.max(0, progress));
+      const updated = updateTask(id, {
+        progress: Math.min(100, Math.max(0, progress)),
+        ...otherUpdates,
+      });
+
+      if (status) {
+        updateTask(id, { status, progress: status === "completed" ? 100 : undefined });
+      }
+
+      console.log(`[Task Pusher] 任務更新: ${id} -> ${status || existingTask.status} (${progress}%)`);
+      return NextResponse.json({ success: true, data: getTask(id) });
     }
 
     // 更新狀態
     if (status) {
-      task.status = status;
-      if (status === "completed") {
-        task.progress = 100;
-      }
+      const updated = updateTask(id, {
+        status,
+        progress: status === "completed" ? 100 : undefined,
+        ...otherUpdates,
+      });
+      console.log(`[Task Pusher] 任務更新: ${id} -> ${status}`);
+      return NextResponse.json({ success: true, data: updated });
     }
 
-    Object.assign(task, otherUpdates);
-    task.updatedAt = new Date().toISOString();
-
-    console.log(`[Task Pusher] 任務更新: ${id} -> ${task.status} (${task.progress}%)`);
-
-    return NextResponse.json({
-      success: true,
-      data: task,
-    });
+    // 其他更新
+    const updated = updateTask(id, otherUpdates);
+    return NextResponse.json({ success: true, data: updated });
   } catch {
     return NextResponse.json(
       { success: false, error: "INVALID_REQUEST", message: "請求格式錯誤" },
@@ -200,15 +201,14 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const taskIndex = tasks.findIndex((t) => t.id === id);
-  if (taskIndex === -1) {
+  const success = deleteTask(id);
+  if (!success) {
     return NextResponse.json(
       { success: false, error: "TASK_NOT_FOUND", message: "任務不存在" },
       { status: 404 }
     );
   }
 
-  tasks.splice(taskIndex, 1);
   console.log(`[Brian ⚖️] 任務刪除: ${id}`);
 
   return NextResponse.json({

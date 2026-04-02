@@ -38,3 +38,6 @@ coverage/
 
 # Next.js
 .next/
+
+# App Data (任務持久化)
+.data/
