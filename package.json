@@ -1,0 +1,24 @@
+{
+  "name": "abu-ji-300",
+  "version": "0.1.0",
+  "private": true,
+  "description": "阿布吉300任務網站 - Andy-os 生態系核心任務管理系統",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.0.0"
+  }
+}
