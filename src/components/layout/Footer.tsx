@@ -8,7 +8,7 @@ import Link from "next/link";
  * @design-spec ui-design.md §2.1
  */
 export function Footer() {
-  const currentYear = new Date().getFullYear();
+  const currentYear = 2026;
 
   return (
     <footer className="border-t border-neutral-200 bg-white py-6 dark:border-neutral-700 dark:bg-[#0F172A]">

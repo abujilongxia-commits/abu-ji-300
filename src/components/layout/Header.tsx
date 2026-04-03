@@ -31,8 +31,10 @@ export function Header() {
         <nav className="hidden md:flex items-center gap-6">
           <NavLink href="/dashboard">儀表板</NavLink>
           <NavLink href="/tasks">任務</NavLink>
-          <NavLink href="/projects">專案</NavLink>
-          <NavLink href="/reports">報告</NavLink>
+          <NavLink href="/prompts">Prompt 庫</NavLink>
+          <NavLink href="/speech">語音合成</NavLink>
+          <NavLink href="/explosion">爆炸圖</NavLink>
+          <NavLink href="/monitor">用量監控</NavLink>
         </nav>
 
         {/* Right Section */}

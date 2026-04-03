@@ -34,14 +34,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon="📋" label="總任務數" value="42" trend="+3 本週" />
-        <StatCard icon="✅" label="已完成" value="28" trend="67%" />
-        <StatCard icon="🔄" label="進行中" value="12" trend="-2" />
-        <StatCard icon="⚠️" label="已逾期" value="2" trend="需關注" />
-      </section>
-
       {/* Quick Actions */}
       <section className="mt-12">
         <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-neutral-100">
@@ -68,52 +60,6 @@ export default function HomePage() {
           />
         </div>
       </section>
-
-      {/* Recent Tasks */}
-      <section className="mt-12">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-            最近任務
-          </h2>
-          <Link
-            href="/tasks"
-            className="text-sm font-medium text-[#2563EB] hover:underline"
-          >
-            查看全部 →
-          </Link>
-        </div>
-        <div className="space-y-3">
-          <TaskItem title="完成用戶登入功能" status="in_progress" due="今天" />
-          <TaskItem title="設計資料庫 Schema" status="completed" due="昨天" />
-          <TaskItem title="API 文件撰寫" status="pending" due="明天" />
-          <TaskItem title="前端介面優化" status="blocked" due="已逾期" />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  trend,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  trend: string;
-}) {
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-      <div className="flex items-center gap-4">
-        <span className="text-3xl">{icon}</span>
-        <div>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{label}</p>
-          <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{value}</p>
-          <p className="text-xs text-neutral-400">{trend}</p>
-        </div>
-      </div>
     </div>
   );
 }
@@ -137,38 +83,5 @@ function QuickActionCard({
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{description}</p>
       </div>
     </Link>
-  );
-}
-
-function TaskItem({
-  title,
-  status,
-  due,
-}: {
-  title: string;
-  status: "pending" | "in_progress" | "completed" | "blocked";
-  due: string;
-}) {
-  const statusConfig = {
-    pending: { label: "待處理", color: "text-neutral-500", bg: "bg-neutral-100" },
-    in_progress: { label: "進行中", color: "text-[#2563EB]", bg: "bg-[#2563EB]/10" },
-    completed: { label: "已完成", color: "text-[#10B981]", bg: "bg-[#10B981]/10" },
-    blocked: { label: "已阻塞", color: "text-[#EF4444]", bg: "bg-[#EF4444]/10" },
-  };
-
-  const config = statusConfig[status];
-
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-      <div className="flex items-center gap-3">
-        <span
-          className={`rounded-full px-2 py-1 text-xs font-medium ${config.color} ${config.bg}`}
-        >
-          {config.label}
-        </span>
-        <span className="font-medium text-neutral-900 dark:text-neutral-100">{title}</span>
-      </div>
-      <span className="text-sm text-neutral-500">截止：{due}</span>
-    </div>
   );
 }

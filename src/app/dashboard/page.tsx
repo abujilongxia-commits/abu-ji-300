@@ -269,11 +269,23 @@ export default function DashboardPage() {
         <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
           快速操作
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <QuickAction icon="➕" title="新建任務" href="/tasks/new" />
           <QuickAction icon="📋" title="任務列表" href="/tasks" />
           <QuickAction icon="📊" title="全部統計" href="/reports" />
-          <QuickAction icon="⚙️" title="設定" href="/settings" />
+          <QuickAction icon="🎨" title="圖像生成" href="/explosion" />
+          <a
+            href="https://solutions.minimaxi.com/debug/image"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800"
+          >
+            <span className="text-2xl">🔧</span>
+            <div>
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">MiniMax 工具</h3>
+              <p className="mt-0.5 text-xs text-neutral-500">圖像/語音除錯</p>
+            </div>
+          </a>
         </div>
       </div>
     </div>
